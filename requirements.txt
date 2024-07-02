@@ -1,0 +1,4 @@
+pillow
+flask
+zipfile
+aspose-words
