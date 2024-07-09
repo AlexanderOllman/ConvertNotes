@@ -1,5 +1,4 @@
 from flask import Flask, render_template, request, send_file, jsonify
-import threading
 import os
 import zipfile
 import shutil
@@ -236,22 +235,31 @@ def convert_to_note(document, export_dir):
             enex_file.write(xml)
             log_info(f"XML content saved as {enex_filename}")
         log_info(f"File {document} successfully converted.")
+        return True
     except Exception as e:
         log_exception(e)
+        return False
 
 def convert_all_files(imports, exports):
     log_info("Starting convert_all_files function")
     try:
+        successful = 0
+        unsuccessful = []
         if not os.path.exists(exports):
             os.makedirs(exports)
         docx_files = [f for f in os.listdir(imports) if f.endswith('.docx')]
         log_info(f"Found {len(docx_files)} .docx files to convert")
         for docx in docx_files:
             docx_path = os.path.join(imports, docx)
-            convert_to_note(docx_path, exports)
-        log_info(f"Completed convert_all_files function, {len(docx_files)} files successfully converted.")
+            if convert_to_note(docx_path, exports):
+                successful += 1
+            else:
+                unsuccessful.append(docx)
+        log_info(f"Completed convert_all_files function, {successful} files successfully converted, {len(unsuccessful)} files failed.")
+        return successful, unsuccessful
     except Exception as e:
         log_exception(e)
+        return 0, []
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'imports'
@@ -274,35 +282,6 @@ def count_files(directory):
     except Exception as e:
         log_exception(e)
         return 0
-
-def convert_to_note_threaded(docx_path, export_dir):
-    log_info(f"Starting convert_to_note_threaded function for document: {docx_path}")
-    global PROGRESS
-    try:
-        convert_to_note(docx_path, export_dir)
-        PROGRESS['successful'] += 1
-        log_info(f"Completed convert_to_note_threaded function for document: {docx_path} successfully")
-    except Exception as e:
-        log_exception(e)
-        PROGRESS['unsuccessful'].append(os.path.basename(docx_path))
-    finally:
-        PROGRESS['processed'] += 1
-
-def convert_all_files_threaded(imports, exports):
-    log_info("Starting convert_all_files_threaded function")
-    global PROGRESS
-    try:
-        if not os.path.exists(exports):
-            os.makedirs(exports)
-        docx_files = [f for f in os.listdir(imports) if f.endswith('.docx')]
-        PROGRESS['total'] = len(docx_files)
-        for docx in docx_files:
-            docx_path = os.path.join(imports, docx)
-            convert_to_note_threaded(docx_path, exports)
-        PROGRESS['done'] = True
-        log_info("Completed convert_all_files_threaded function successfully")
-    except Exception as e:
-        log_exception(e)
 
 @app.route('/')
 def index():
@@ -338,9 +317,12 @@ def upload_file():
             os.remove(file_path)
             imports_count = count_files(UPLOAD_FOLDER)
             PROGRESS['total'] = imports_count
-            thread = threading.Thread(target=convert_all_files_threaded, args=(UPLOAD_FOLDER, EXPORT_FOLDER))
-            thread.start()
-            log_info(f"Started processing {imports_count} files")
+            successful, unsuccessful = convert_all_files(UPLOAD_FOLDER, EXPORT_FOLDER)
+            PROGRESS['successful'] = successful
+            PROGRESS['unsuccessful'] = unsuccessful
+            PROGRESS['processed'] = imports_count
+            PROGRESS['done'] = True
+            log_info(f"Completed processing {imports_count} files")
             return jsonify({"status": "Processing started", "total_files": imports_count})
         else:
             log_info("Invalid file type, not a .zip file")
