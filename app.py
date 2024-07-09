@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', handl
 ])
 
 def log_exception(e):
-    logging.error(e, exc_info=True)
+    logging.info(e, exc_info=True)
 
 def log_info(message):
     logging.info(message)
