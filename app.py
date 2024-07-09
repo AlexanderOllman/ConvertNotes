@@ -11,46 +11,60 @@ import hashlib
 import aspose.words as aw
 import logging
 
-# Setup logging
+# Setup logging to file and terminal
 log_filename = os.path.expanduser('~/logs.txt')
-logging.basicConfig(filename=log_filename, level=logging.ERROR, format='%(asctime)s %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', handlers=[
+    logging.FileHandler(log_filename),
+    logging.StreamHandler()
+])
 
 def log_exception(e):
     logging.error(e, exc_info=True)
 
+def log_info(message):
+    logging.info(message)
+
 def get_hash(image_base64):
+    log_info("Starting get_hash function")
     try:
         etag = hashlib.md5()
         etag.update(base64.b64decode(image_base64))
         localHash = etag.hexdigest()
+        log_info("Completed get_hash function successfully")
         return localHash
     except Exception as e:
         log_exception(e)
         return None
 
 def image_to_data(image_bytes):
+    log_info("Starting image_to_data function")
     try:
         image_base64 = base64.b64encode(image_bytes).decode('utf-8')
         hash = get_hash(image_base64)
+        log_info("Completed image_to_data function successfully")
         return hash, image_base64
     except Exception as e:
         log_exception(e)
         return None, None
 
 def extract_datetime_from_filename(filename):
+    log_info("Starting extract_datetime_from_filename function")
     try:
         match = re.match(r'(.+)_(\d{6})_(\d{6}).*\.docx', filename)
         if match:
             _, date_str, time_str = match.groups()
             date_time = datetime.datetime.strptime(date_str + time_str, '%y%m%d%H%M%S')
+            log_info("Completed extract_datetime_from_filename function successfully")
             return date_time.strftime('%Y%m%dT%H%M%S') + 'Z'
         else:
+            log_info("Filename did not match the expected pattern")
             return None
     except Exception as e:
         log_exception(e)
         return None
 
 def process_document(document):
+    log_info("Starting process_document function")
     try:
         doc = aw.Document(document)
         sections = doc.get_child_nodes(aw.NodeType.ANY, True)
@@ -79,12 +93,14 @@ def process_document(document):
                             "type": "text",
                             "content": raw_text
                         })
+        log_info("Completed process_document function successfully")
         return document_array
     except Exception as e:
         log_exception(e)
         return []
 
 def format_image(image):
+    log_info("Starting format_image function")
     try:
         image_bytes = image["content"]
         [height, width] = image["size"]
@@ -102,21 +118,25 @@ def format_image(image):
 <height>{height}</height>
 </resource>
 '''
+        log_info("Completed format_image function successfully")
         return tag, resource
     except Exception as e:
         log_exception(e)
         return None, None
 
 def format_text(text):
+    log_info("Starting format_text function")
     try:
         content = text["content"]
         tag = f"<div>{content}</div><div><br/></div>"
+        log_info("Completed format_text function successfully")
         return tag
     except Exception as e:
         log_exception(e)
         return ""
 
 def get_title(text):
+    log_info("Starting get_title function")
     try:
         input_string = text["content"]
         match = re.search(r'[\n!?]|\. ', input_string)
@@ -133,21 +153,25 @@ def get_title(text):
                 title = title[:last_space_index]
             else:
                 title = title[:80]
+        log_info("Completed get_title function successfully")
         return title
     except Exception as e:
         log_exception(e)
         return "Untitled"
 
 def time_title(timezone_string):
+    log_info("Starting time_title function")
     try:
         dt = datetime.datetime.strptime(timezone_string, '%Y%m%dT%H%M%S' + 'Z')
         date_string = dt.strftime('%d-%m-%Y')
+        log_info("Completed time_title function successfully")
         return date_string
     except Exception as e:
         log_exception(e)
         return "Untitled"
 
 def convert_document(document):
+    log_info("Starting convert_document function")
     try:
         tags = []
         resources = []
@@ -165,12 +189,14 @@ def convert_document(document):
                     title_saved = True
                 text_tag = format_text(section)
                 tags.append(text_tag)
+        log_info("Completed convert_document function successfully")
         return title, tags, resources
     except Exception as e:
         log_exception(e)
         return "", [], []
 
 def generate_xml(timestamp, title, tags, resources):
+    log_info("Starting generate_xml function")
     try:
         tag_string = "".join(tags)
         resource_string = "".join(resources)
@@ -189,12 +215,14 @@ def generate_xml(timestamp, title, tags, resources):
 </note>
 </en-export>
 '''
+        log_info("Completed generate_xml function successfully")
         return xml
     except Exception as e:
         log_exception(e)
         return ""
 
 def convert_to_note(document, export_dir):
+    log_info(f"Starting convert_to_note function for document: {document}")
     try:
         if not os.path.exists(export_dir):
             os.makedirs(export_dir)
@@ -206,21 +234,22 @@ def convert_to_note(document, export_dir):
         enex_filename = os.path.join(export_dir, f"{title}.enex")
         with open(enex_filename, 'w') as enex_file:
             enex_file.write(xml)
-            print(f"XML content saved as {enex_filename}")
-        print(f"File {document} successfully converted.")
+            log_info(f"XML content saved as {enex_filename}")
+        log_info(f"File {document} successfully converted.")
     except Exception as e:
         log_exception(e)
 
 def convert_all_files(imports, exports):
+    log_info("Starting convert_all_files function")
     try:
         if not os.path.exists(exports):
             os.makedirs(exports)
         docx_files = [f for f in os.listdir(imports) if f.endswith('.docx')]
-        print(len(docx_files))
+        log_info(f"Found {len(docx_files)} .docx files to convert")
         for docx in docx_files:
             docx_path = os.path.join(imports, docx)
             convert_to_note(docx_path, exports)
-        print(f"{str(len(docx_files))} successfully converted.")
+        log_info(f"Completed convert_all_files function, {len(docx_files)} files successfully converted.")
     except Exception as e:
         log_exception(e)
 
@@ -237,17 +266,22 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(EXPORT_FOLDER, exist_ok=True)
 
 def count_files(directory):
+    log_info(f"Starting count_files function for directory: {directory}")
     try:
-        return sum([len(files) for r, d, files in os.walk(directory)])
+        count = sum([len(files) for r, d, files in os.walk(directory)])
+        log_info(f"Completed count_files function, found {count} files")
+        return count
     except Exception as e:
         log_exception(e)
         return 0
 
 def convert_to_note_threaded(docx_path, export_dir):
+    log_info(f"Starting convert_to_note_threaded function for document: {docx_path}")
     global PROGRESS
     try:
         convert_to_note(docx_path, export_dir)
         PROGRESS['successful'] += 1
+        log_info(f"Completed convert_to_note_threaded function for document: {docx_path} successfully")
     except Exception as e:
         log_exception(e)
         PROGRESS['unsuccessful'].append(os.path.basename(docx_path))
@@ -255,6 +289,7 @@ def convert_to_note_threaded(docx_path, export_dir):
         PROGRESS['processed'] += 1
 
 def convert_all_files_threaded(imports, exports):
+    log_info("Starting convert_all_files_threaded function")
     global PROGRESS
     try:
         if not os.path.exists(exports):
@@ -265,11 +300,13 @@ def convert_all_files_threaded(imports, exports):
             docx_path = os.path.join(imports, docx)
             convert_to_note_threaded(docx_path, exports)
         PROGRESS['done'] = True
+        log_info("Completed convert_all_files_threaded function successfully")
     except Exception as e:
         log_exception(e)
 
 @app.route('/')
 def index():
+    log_info("Starting index route")
     try:
         return render_template('index.html')
     except Exception as e:
@@ -278,13 +315,16 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
+    log_info("Starting upload_file route")
     global PROGRESS
     PROGRESS = {'total': 0, 'processed': 0, 'successful': 0, 'unsuccessful': [], 'done': False}
     try:
         if 'file' not in request.files:
+            log_info("No file part in request")
             return 'No file part'
         file = request.files['file']
         if file.filename == '':
+            log_info("No selected file")
             return 'No selected file'
         if file and file.filename.endswith('.zip'):
             file_path = os.path.join(UPLOAD_FOLDER, file.filename)
@@ -300,8 +340,10 @@ def upload_file():
             PROGRESS['total'] = imports_count
             thread = threading.Thread(target=convert_all_files_threaded, args=(UPLOAD_FOLDER, EXPORT_FOLDER))
             thread.start()
+            log_info(f"Started processing {imports_count} files")
             return jsonify({"status": "Processing started", "total_files": imports_count})
         else:
+            log_info("Invalid file type, not a .zip file")
             return 'Invalid file type, please upload a .zip file'
     except Exception as e:
         log_exception(e)
@@ -309,6 +351,7 @@ def upload_file():
 
 @app.route('/progress')
 def progress():
+    log_info("Starting progress route")
     try:
         return jsonify(PROGRESS)
     except Exception as e:
@@ -317,6 +360,7 @@ def progress():
 
 @app.route('/download')
 def download():
+    log_info("Starting download route")
     try:
         exports_count = count_files(EXPORT_FOLDER)
         output_zip_path = 'exports.zip'
@@ -328,10 +372,12 @@ def download():
         shutil.rmtree(EXPORT_FOLDER)
         os.makedirs(UPLOAD_FOLDER, exist_ok=True)
         os.makedirs(EXPORT_FOLDER, exist_ok=True)
+        log_info(f"Completed download route, zip file created at {output_zip_path}")
         return send_file(output_zip_path, as_attachment=True)
     except Exception as e:
         log_exception(e)
         return "An error occurred."
 
 if __name__ == '__main__':
+    log_info("Starting Flask application")
     app.run(debug=True)
