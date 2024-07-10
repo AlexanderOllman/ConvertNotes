@@ -26,50 +26,23 @@
             margin: 0 10px;
             max-width: 100px;
         }
-        .dropzone {
-            border: 2px dashed #cccccc;
-            border-radius: 5px;
-            background: #f8f9fa;
-            padding: 20px;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
-        .dropzone.hover {
-            background: #e9ecef;
-        }
-        .dropzone p {
-            margin: 0;
-            font-size: 1.2em;
-            color: #6c757d;
-        }
-        .dropzone .filename {
-            font-size: 1em;
-            color: #000;
-        }
-        .spinner-border {
-            display: none;
-            margin: 20px auto;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="images">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a3/Samsung_Notes_icon.png" alt="Stock Image 1">
-            <img src="https://www.emoji.co.uk/files/apple-emojis/symbols-ios/914-black-rightwards-arrow.png" alt="Stock Image 2">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_Notes_icon.svg/800px-Apple_Notes_icon.svg.png" alt="Stock Image 3">
+            <img src="https://via.placeholder.com/100" alt="Stock Image 1">
+            <img src="https://via.placeholder.com/100" alt="Stock Image 2">
         </div>
         <h1>Upload ZIP File</h1>
-        <div id="dropzone" class="dropzone">
-            <p>Choose a file or drag it here.</p>
-            <p class="filename"></p>
-        </div>
-        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data" style="display: none;">
-            <input type="file" name="file" id="file-input">
+        <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <input type="file" name="file" class="form-control-file" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload</button>
         </form>
-        <button id="upload-button" class="btn btn-primary" style="display: none;">Upload</button>
-        <div class="spinner-border text-primary" role="status">
-            <span class="sr-only">Loading...</span>
+        <div class="progress mt-3" style="display: none;">
+            <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
         <div id="conversion-summary" class="mt-3" style="display: none;">
             <p id="success-count"></p>
@@ -85,56 +58,9 @@
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script>
-        var dropzone = document.getElementById('dropzone');
-        var fileInput = document.getElementById('file-input');
-        var uploadButton = document.getElementById('upload-button');
-        var spinner = document.querySelector('.spinner-border');
-
-        dropzone.addEventListener('click', function() {
-            fileInput.click();
-        });
-
-        dropzone.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            dropzone.classList.add('hover');
-        });
-
-        dropzone.addEventListener('dragleave', function() {
-            dropzone.classList.remove('hover');
-        });
-
-        dropzone.addEventListener('drop', function(e) {
-            e.preventDefault();
-            dropzone.classList.remove('hover');
-
-            var files = e.dataTransfer.files;
-            if (files.length > 0) {
-                fileInput.files = files;
-                showFileName(files[0]);
-            }
-        });
-
-        fileInput.addEventListener('change', function() {
-            if (fileInput.files.length > 0) {
-                showFileName(fileInput.files[0]);
-            }
-        });
-
-        uploadButton.addEventListener('click', function() {
-            handleFileUpload(fileInput.files[0]);
-        });
-
-        function showFileName(file) {
-            document.querySelector('.filename').textContent = file.name;
-            uploadButton.style.display = 'inline-block';
-        }
-
-        function handleFileUpload(file) {
-            var formData = new FormData();
-            formData.append('file', file);
-
-            spinner.style.display = 'inline-block';
-            uploadButton.style.display = 'none';
+        document.getElementById('upload-form').onsubmit = function(event) {
+            event.preventDefault();
+            var formData = new FormData(this);
 
             fetch('/upload', {
                 method: 'POST',
@@ -144,10 +70,15 @@
             .then(data => {
                 if (data.status === "Processing started") {
                     var totalFiles = data.total_files;
+                    $('.progress').show();
                     var interval = setInterval(function() {
                         fetch('/progress')
                         .then(response => response.json())
                         .then(progressData => {
+                            var processedFiles = progressData.processed;
+                            var percentage = Math.round((processedFiles / totalFiles) * 100);
+                            $('.progress-bar').css('width', percentage + '%').attr('aria-valuenow', percentage).text(percentage + '%');
+
                             $('#success-count').text(`${progressData.successful}/${totalFiles} files successfully converted!`);
 
                             if (progressData.unsuccessful.length > 0) {
@@ -158,7 +89,6 @@
 
                             if (progressData.done) {
                                 clearInterval(interval);
-                                spinner.style.display = 'none';
                                 $('#download-section').show();
                                 $('#conversion-summary').show();
                             }
@@ -168,7 +98,6 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                spinner.style.display = 'none';
             });
         }
     </script>
