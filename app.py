@@ -296,6 +296,10 @@ def upload_file():
     log_info("Starting upload_file route")
     global PROGRESS
     PROGRESS = {'total': 0, 'processed': 0, 'successful': 0, 'unsuccessful': [], 'done': False}
+    if os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    if os.path.exists(EXPORT_FOLDER):
+        os.makedirs(EXPORT_FOLDER, exist_ok=True) 
     try:
         if 'file' not in request.files:
             log_info("No file part in request")
