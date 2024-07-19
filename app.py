@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, send_file, jsonify
+from flask import Flask, render_template, request, send_file, jsonify, url_for
 import os
 import zipfile
 import shutil
@@ -286,7 +286,8 @@ def count_files(directory):
 def index():
     log_info("Starting index route")
     try:
-        return render_template('index.html')
+        print(url_for('static', filename='logo.png'))
+        return render_template('index_new.html')
     except Exception as e:
         log_exception(e)
         return "An error occurred."
